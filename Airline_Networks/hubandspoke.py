@@ -71,7 +71,7 @@ for i in range(6):
 
 c4={}
 c4[0] = model.addConstr(gp.quicksum(((Distance[i][j] / Parameters['speed'])+Parameters['lto'])*z[i,j] for i in range(6) for j in range(6)),
-                        '<=',Parameters['bt']*Parameters['fleet'])
+                        '<=',Parameters['bt']*Parameters['fleet'],name="C4(0)")
 
 ## Define objective
 obj = gp.LinExpr()
