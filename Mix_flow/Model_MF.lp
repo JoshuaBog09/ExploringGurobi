@@ -97,20 +97,20 @@ Subject To
    + x(6,12) + x(7,5) + x(7,12) + x(8,5) + x(8,12) + x(9,5) + x(9,12)
    + x(10,5) + x(10,12) + x(11,5) + x(11,12) + x(12,5) + x(12,12) + x(13,5)
    + x(13,12) + x(14,5) + x(14,12) <= 108
- ucDemand0: 3.333333333333333 x(0,1) <= 90
- ucDemand1: 10 x(1,0) <= 120
- ucDemand2: 5 x(2,3) + 20 x(2,4) <= 70
- ucDemand3: 10 x(3,2) + 10 x(3,4) <= 100
+ ucDemand0: <= 90
+ ucDemand1: <= 120
+ ucDemand2: <= 70
+ ucDemand3: <= 100
  ucDemand4: <= 50
- ucDemand5: 3.333333333333333 x(5,6) + 20 x(5,7) <= 120
- ucDemand6: 10 x(6,7) <= 80
+ ucDemand5: <= 120
+ ucDemand6: <= 80
  ucDemand7: <= 70
- ucDemand8: 5 x(8,9) <= 140
- ucDemand9: 10 x(9,8) <= 125
- ucDemand10: 2.5 x(10,11) + 10 x(10,12) <= 50
- ucDemand11: 10 x(11,10) + 6.666666666666667 x(11,12) <= 180
+ ucDemand8: <= 140
+ ucDemand9: <= 125
+ ucDemand10: <= 50
+ ucDemand11: <= 180
  ucDemand12: <= 30
- ucDemand13: 5 x(13,14) <= 75
+ ucDemand13: <= 75
  ucDemand14: 10 x(14,13) <= 80
 Bounds
 Generals

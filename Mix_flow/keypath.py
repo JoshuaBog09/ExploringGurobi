@@ -6,17 +6,13 @@ flights = np.genfromtxt("Mix_flow/flight.txt", delimiter="\t", dtype="unicode")
 itineraries = np.genfromtxt("Mix_flow/itineraries.txt", delimiter="\t", dtype="unicode")
 recaptures = np.genfromtxt("Mix_flow/recapture.txt", delimiter="\t")
 
-model = gp.Model("MILP_MixFlow")
-
-print(flights)
-print(itineraries)
-print(recaptures)
+model = gp.Model("MILP_KeyPath")
 
 # define decision variables
-x = {}
+t = {}
 for p in range(itineraries.shape[0]):
     for r in range(itineraries.shape[0]):
-        x[p,r] = model.addVar(vtype = gp.GRB.INTEGER, name = f"x({p},{r})")
+        t[p,r] = model.addVar(vtype = gp.GRB.INTEGER, name = f"t({p},{r})")
 
 model.update()
 
@@ -28,7 +24,7 @@ for i, flight in enumerate(flights[:,0]):
             d = 1
         elif flight not in path:
             d = 0
-        delta[i,p] = d
+        delta[i, p] = d
 
 # define b constant
 b = {}
@@ -40,36 +36,37 @@ for p in range(recaptures.shape[0]):
             else:
                 b[p, r] = 0
 
-
-capacity = {}
+Q = {}
 for i in range(flights.shape[0]):
-    capacity[i] = model.addConstr(gp.quicksum(delta[i, r]*x[p, r] for p in range(itineraries.shape[0]) for r in range(itineraries.shape[0])),
-                                  "<=", int(flights[i,-1]), name=f"Capacity({i})")
+    Q[i] = gp.quicksum(delta[i, p]*int(itineraries[p, 3]) for p in range(itineraries.shape[0]))
 
+CAP = {}
+for i in range(flights.shape[0]):
+    CAP[i] = int(flights[i,5])
 
-ucdemand = {}
+# Constraint one
+c1 = {}
+for i in range(flights.shape[0]):
+    c1[i] = model.addConstr(gp.quicksum(delta[i, p]*t[p, r] for p in range(itineraries.shape[0]) for r in range(itineraries.shape[0])) - 
+                            gp.quicksum(delta[i, p]*b[r, p]*t[r, p] for r in range(itineraries.shape[0]) for p in range(itineraries.shape[0])),
+                              ">=", Q[i] - CAP[i], name=f"C1({i})")
+
+# Constraint two
+c2 = {}
 for p in range(itineraries.shape[0]):
-
-    constr = gp.LinExpr()
-    
-    for r in range(itineraries.shape[0]):
-        try:
-            constr += x[p, r]/b[p, r]
-        except:
-            constr += 0
-    
-    ucdemand[p] = model.addConstr(constr, "<=", int(itineraries[p,3]), name=f"ucDemand{p}")
+    c2[p] = model.addConstr(gp.quicksum(t[p, r] for r in range(itineraries.shape[0])), "<=", 
+                            int(itineraries[p, 3]), name=f"C2({p})")
     
 ## Define objective
 obj = gp.LinExpr()
 
 for p in range(itineraries.shape[0]):
     for r in range(itineraries.shape[0]):
-        obj += x[p, r] * int(itineraries[r,4].strip().replace("$",""))
+        obj += (int(itineraries[p,4].strip().replace("$","")) - b[p, r]* int(itineraries[r,4].strip().replace("$","")))*t[p, r]
 
 
-model.setObjective(obj,gp.GRB.MAXIMIZE)
+model.setObjective(obj,gp.GRB.MINIMIZE)
 
 model.update()
-model.write("Mix_flow/Model_MF.lp") # 1.422000000000e+05
+model.write("Mix_flow/Model_KP.lp")
 model.optimize()
