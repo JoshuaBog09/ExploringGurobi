@@ -1,4 +1,4 @@
-Flight, From, To, Deperature, Arrival, Demand
+Flight, From, To, Departure, Arrival, Demand
 S4120, PDL, LIS, 9:25, 11:30, 195
 S4220, PDL, LIS, 10:20, 13:25, 167
 S4124, PDL, LIS, 16:05, 18:10, 151

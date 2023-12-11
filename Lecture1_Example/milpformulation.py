@@ -68,8 +68,8 @@ for id, node in enumerate(nodes, start=1):
 # for arc in arcs:
 #     print(arc.__dict__)
 
-# for node in nodes:
-#     print(node.__dict__)
+for node in nodes:
+    print(node.__dict__)
 
 # for commo in commodities:
 #     print(commo.__dict__)
@@ -77,51 +77,51 @@ for id, node in enumerate(nodes, start=1):
 
 ## The MILP model
 
-model = gp.Model("MILP_1")
+# model = gp.Model("MILP_1")
 
-# Define variables
-x = {}
-for k in range(1, len(commodities) + 1):
-    for arc in arcs:
-        x[k, arc.From, arc.To] = model.addVar(obj= arc.Cost, vtype ="C",
-                                              name = "x(%d,%d,%d)"%(k,arc.From,arc.To))
+# # Define variables
+# x = {}
+# for k in range(1, len(commodities) + 1):
+#     for arc in arcs:
+#         x[k, arc.From, arc.To] = model.addVar(obj= arc.Cost, vtype ="C",
+#                                               name = "x(%d,%d,%d)"%(k,arc.From,arc.To))
         
-model.update()
+# model.update()
 
-# Define constraints
+# # Define constraints
 
-capacity = {}
+# capacity = {}
 
-for id, arc in enumerate(arcs, start=1):
-    x[arc.From, arc.To] = model.addConstr(gp.quicksum(x[k,arc.From,arc.To] for k in range(1,len(commodities)+1)),
-                                          "<=",arc.Capac,name="Capacity(%d)"%id)
+# for id, arc in enumerate(arcs, start=1):
+#     x[arc.From, arc.To] = model.addConstr(gp.quicksum(x[k,arc.From,arc.To] for k in range(1,len(commodities)+1)),
+#                                           "<=",arc.Capac,name="Capacity(%d)"%id)
 
-continuity = {}
+# continuity = {}
 
-for idc, commodity in enumerate(commodities, start=1):
-    for idn, node in enumerate(nodes,start=1):
-        if idn == commodity.From:
-            continuity[idc,idn] = model.addConstr(gp.quicksum(x[idc,idn,p] for p in node.OutLinks) - gp.quicksum(x[idc,p,idn] for p in node.InLinks),
-                                    '=', commodity.Quant, name ='Continuity(%d,%d)' %(idc,idn) )
-        elif idn == commodity.To:
-            continuity[idc,idn] = model.addConstr(gp.quicksum(x[idc,idn,p] for p in node.OutLinks) - gp.quicksum(x[idc,p,idn] for p in node.InLinks),
-                                    '=', -commodity.Quant, name ='Continuity(%d,%d)' %(idc,idn) )
-        else:
-            continuity[idc,idn] = model.addConstr(gp.quicksum(x[idc,idn,p] for p in node.OutLinks) - gp.quicksum(x[idc,p,idn] for p in node.InLinks),
-                                    '=', 0, name ='Continuity(%d,%d)' %(idc,idn) )
+# for idc, commodity in enumerate(commodities, start=1):
+#     for idn, node in enumerate(nodes,start=1):
+#         if idn == commodity.From:
+#             continuity[idc,idn] = model.addConstr(gp.quicksum(x[idc,idn,p] for p in node.OutLinks) - gp.quicksum(x[idc,p,idn] for p in node.InLinks),
+#                                     '=', commodity.Quant, name ='Continuity(%d,%d)' %(idc,idn) )
+#         elif idn == commodity.To:
+#             continuity[idc,idn] = model.addConstr(gp.quicksum(x[idc,idn,p] for p in node.OutLinks) - gp.quicksum(x[idc,p,idn] for p in node.InLinks),
+#                                     '=', -commodity.Quant, name ='Continuity(%d,%d)' %(idc,idn) )
+#         else:
+#             continuity[idc,idn] = model.addConstr(gp.quicksum(x[idc,idn,p] for p in node.OutLinks) - gp.quicksum(x[idc,p,idn] for p in node.InLinks),
+#                                     '=', 0, name ='Continuity(%d,%d)' %(idc,idn) )
             
-model.update()
-model.write("MCF_Model.lp")
-model.optimize()
+# model.update()
+# model.write("MCF_Model.lp")
+# model.optimize()
 
-print
-for arc in arcs:
-    Flow = 0
-    for m in range(1,len(commodities)+1):
-        Flow += x[m,arc.From,arc.To].X
-    if int(Flow)>0:
-        print ("Arc(%d,%d) \t" %(arc.From + 1,arc.To + 1), int(Flow))
-        print
-print
-print ("Objective Function =", model.ObjVal/1.0)
-print ("------------------------------------------------------------------------")
+# print
+# for arc in arcs:
+#     Flow = 0
+#     for m in range(1,len(commodities)+1):
+#         Flow += x[m,arc.From,arc.To].X
+#     if int(Flow)>0:
+#         print ("Arc(%d,%d) \t" %(arc.From + 1,arc.To + 1), int(Flow))
+#         print
+# print
+# print ("Objective Function =", model.ObjVal/1.0)
+# print ("------------------------------------------------------------------------")
