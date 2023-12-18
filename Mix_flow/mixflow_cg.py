@@ -99,146 +99,256 @@ model.setObjective(obj,gp.GRB.MINIMIZE)
 model.update()
 # model.optimize()
 
-relaxed_model = model.relax()
-relaxed_model.optimize()
+iterations = 0
 
-for id_t, val_t in t.items():
-    print(f"{id_t} => {val_t}")
+while iterations < 5:
+    iterations += 1
 
-pis = []
-for i in range(L):
-    pis.append(relaxed_model.getConstrByName(f"C4({i})").Pi)
+    print(f"Started iteration number {iterations}")
 
-sigmas = []
-for p in range(P):
-    sigmas.append(relaxed_model.getConstrByName(f"C5({p})").Pi)
+    relaxed_model = model.relax()
+    relaxed_model.optimize()
 
-c = {}
-for p in range(P):
-    for r in range(P):
-        c[p,r] = (fare[p] - sum([delta[i,p]*pis[i] for i in range(L)])) - b[p,r] * (fare[r] - sum([delta[i,r]*pis[i] for i in range(L)])) - sigmas[p]
+    pis = [relaxed_model.getConstrByName(f"C4({i})").Pi for i in range(L)]
+    sigmas = [relaxed_model.getConstrByName(f"C5({p})").Pi for p in range(P)]
 
-print(c)
+    c = {}
+    for p in range(P):
+        for r in range(P):
+            c[p,r] = (fare[p] - sum([delta[i,p]*pis[i] for i in range(L)])) - b[p,r] * (fare[r] - sum([delta[i,r]*pis[i] for i in range(L)])) - sigmas[p]
 
-new_p = []
-new_r = []
+    new_p = []
+    new_r = []
 
-for p in range(P):
-    for r in range(P):
-        if c[p,r]<0:
-            # columns to add -> t_p^r
-            # Suggestion next to r = -1 add the indexes which belong to the various found values
-            # Then loop over the newly created list of r values (repeat afterwards)
+    for p in range(P):
+        for r in range(P):
+            if c[p,r]<0:
+                print(f"({p},{r}) = ({c[p,r]})")
+                
+                new_p.append(p)
+                new_r.append(r)
 
-            # Question what to do with brp b(-1,p) to what is this equal
-            print(f"({p},{r}) = ({c[p,r]})")
-            
-            new_p.append(p)
-            new_r.append(r)
-
-r_set.extend(new_r)
-print(r_set)
-
-# add t_1^0, t_2^3, t_11^10
-
-for n_p, n_r in zip(new_p, new_r):
-    t[n_p, n_r] = model.addVar(vtype=gp.GRB.INTEGER, name="t(%d,%d)"%(n_p,n_r))
-
-model.update()
-
-for i in range(L):
-    model.remove(model.getConstrByName(f"C4({i})"))
-
-for p in range(P):
-    model.remove(model.getConstrByName(f"C5({p})"))
+    if len(new_r) == 0:
+        print(f"Stop iterating at iteration number {iterations}")
+        break 
     
+    r_set.extend(new_r)
 
-#unconstrained passenger demands by itinerary
-C4 = {}
-for i in range(L):
+    for n_p, n_r in zip(new_p, new_r):
+        t[n_p, n_r] = model.addVar(vtype=gp.GRB.INTEGER, name="t(%d,%d)"%(n_p,n_r))
 
-    expr1 = gp.LinExpr()
-    expr2 = gp.LinExpr()
+    model.update()
+
+    for i in range(L):
+        model.remove(model.getConstrByName(f"C4({i})"))
+
+    for p in range(P):
+        model.remove(model.getConstrByName(f"C5({p})"))
+
+    #unconstrained passenger demands by itinerary
+    C4 = {}
+    for i in range(L):
+
+        expr1 = gp.LinExpr()
+        expr2 = gp.LinExpr()
+
+        for p in range(P):
+            for r in r_set:
+                try:
+                    expr1 += delta[i, p]*t[p, r]
+                except:
+                    expr1 += 0
+
+        for p in r_set:
+            for r in range(P):
+                try:
+                    expr2 += delta[i, p]*b[r, p]*t[r, p]
+                except:
+                    expr2 += 0
+        
+        C4[i] = model.addLConstr(expr1-expr2,">=", Q[i] - CAP[i], name='C4(%d)'%(i))
+
+    C5 = {}
+    for p in range(P):
+        expr = gp.LinExpr()
+
+        for r in r_set:
+            try:
+                expr += t[p, r]
+            except:
+                expr += 0
+        
+        C5[p] = model.addLConstr(expr, "<=", D[p], name='C5(%d)'%(p))
+
+    ##########################
+    ### Objective Function ###
+    ##########################
+    obj = gp.LinExpr()
 
     for p in range(P):
         for r in r_set:
             try:
-                expr1 += delta[i, p]*t[p, r]
+                obj += (fare[p] - b[p, r] * fare[r]) * t[p, r]
             except:
-                expr1 += 0
+                obj += 0
 
-    for p in r_set:
-        for r in range(P):
-            try:
-                expr2 += delta[i, p]*b[r, p]*t[r, p]
-            except:
-                expr2 += 0
-    
-    C4[i] = model.addLConstr(expr1-expr2,">=", Q[i] - CAP[i], name='C4(%d)'%(i))
+    model.setObjective(obj,gp.GRB.MINIMIZE)
+    model.update()
+
+
+
+
+
+
+# #############################################################################
+# # Iteration 1
+# #############################################################################
+
+# relaxed_model = model.relax()
+# relaxed_model.optimize()
+
+# for id_t, val_t in t.items():
+#     print(f"{id_t} => {val_t}")
+
+# pis = []
+# for i in range(L):
+#     pis.append(relaxed_model.getConstrByName(f"C4({i})").Pi)
+
+# sigmas = []
+# for p in range(P):
+#     sigmas.append(relaxed_model.getConstrByName(f"C5({p})").Pi)
+
+# c = {}
+# for p in range(P):
+#     for r in range(P):
+#         c[p,r] = (fare[p] - sum([delta[i,p]*pis[i] for i in range(L)])) - b[p,r] * (fare[r] - sum([delta[i,r]*pis[i] for i in range(L)])) - sigmas[p]
+
+# print(c)
+
+# new_p = []
+# new_r = []
+
+# for p in range(P):
+#     for r in range(P):
+#         if c[p,r]<0:
+#             # columns to add -> t_p^r
+#             # Suggestion next to r = -1 add the indexes which belong to the various found values
+#             # Then loop over the newly created list of r values (repeat afterwards)
+
+#             # Question what to do with brp b(-1,p) to what is this equal
+#             print(f"({p},{r}) = ({c[p,r]})")
+            
+#             new_p.append(p)
+#             new_r.append(r)
+
+# r_set.extend(new_r)
+# print(r_set)
+
+# # add t_1^0, t_2^3, t_11^10
+
+# for n_p, n_r in zip(new_p, new_r):
+#     t[n_p, n_r] = model.addVar(vtype=gp.GRB.INTEGER, name="t(%d,%d)"%(n_p,n_r))
+
+# model.update()
 
 # for i in range(L):
-#     C4[i] = model.addLConstr(gp.quicksum(delta[i, p]*t[p, r] for p in range(P) for r in r_set) -
-#                              gp.quicksum(delta[i, p]*b[p, r]*t[p, r] for p in range(P) for r in r_set),
-#                              ">=", Q[i] - CAP[i], name='C4(%d)'%(i))
+#     model.remove(model.getConstrByName(f"C4({i})"))
 
-C5 = {}
-
-for p in range(P):
-    expr = gp.LinExpr()
-
-    for r in r_set:
-        try:
-            expr += t[p, r]
-        except:
-            expr += 0
+# for p in range(P):
+#     model.remove(model.getConstrByName(f"C5({p})"))
     
-    C5[p] = model.addLConstr(expr, "<=", D[p], name='C5(%d)'%(p))
 
-##########################
-### Objective Function ###
-##########################
-obj = gp.LinExpr()
+# #unconstrained passenger demands by itinerary
+# C4 = {}
+# for i in range(L):
 
-for p in range(P):
-    for r in r_set:
-        try:
-            obj += (fare[p] - b[p, r] * fare[r]) * t[p, r]
-        except:
-            obj += 0
+#     expr1 = gp.LinExpr()
+#     expr2 = gp.LinExpr()
 
-model.setObjective(obj,gp.GRB.MINIMIZE)
-model.update()
+#     for p in range(P):
+#         for r in r_set:
+#             try:
+#                 expr1 += delta[i, p]*t[p, r]
+#             except:
+#                 expr1 += 0
 
-relaxed_model = model.relax()
-relaxed_model.update()
-relaxed_model.optimize()
-relaxed_model.write("cg.lp")
+#     for p in r_set:
+#         for r in range(P):
+#             try:
+#                 expr2 += delta[i, p]*b[r, p]*t[r, p]
+#             except:
+#                 expr2 += 0
+    
+#     C4[i] = model.addLConstr(expr1-expr2,">=", Q[i] - CAP[i], name='C4(%d)'%(i))
 
-pis = []
-for i in range(L):
-    pis.append(relaxed_model.getConstrByName(f"C4({i})").Pi)
+# # for i in range(L):
+# #     C4[i] = model.addLConstr(gp.quicksum(delta[i, p]*t[p, r] for p in range(P) for r in r_set) -
+# #                              gp.quicksum(delta[i, p]*b[p, r]*t[p, r] for p in range(P) for r in r_set),
+# #                              ">=", Q[i] - CAP[i], name='C4(%d)'%(i))
 
-sigmas = []
-for p in range(P):
-    sigmas.append(relaxed_model.getConstrByName(f"C5({p})").Pi)
+# C5 = {}
 
-c = {}
-for p in range(P):
-    for r in range(P):
-        c[p,r] = (fare[p] - sum([delta[i,p]*pis[i] for i in range(L)])) - b[p,r] * (fare[r] - sum([delta[i,r]*pis[i] for i in range(L)])) - sigmas[p]
+# for p in range(P):
+#     expr = gp.LinExpr()
 
-new_p = []
-new_r = []
+#     for r in r_set:
+#         try:
+#             expr += t[p, r]
+#         except:
+#             expr += 0
+    
+#     C5[p] = model.addLConstr(expr, "<=", D[p], name='C5(%d)'%(p))
 
-for p in range(P):
-    for r in range(P):
-        if c[p,r]<0:
-            # columns to add -> t_p^r
-            # Suggestion next to r = -1 add the indexes which belong to the various found values
-            # Then loop over the newly created list of r values (repeat afterwards)
+# ##########################
+# ### Objective Function ###
+# ##########################
+# obj = gp.LinExpr()
 
-            # Question what to do with brp b(-1,p) to what is this equal
-            print(f"({p},{r}) = ({c[p,r]})")
+# for p in range(P):
+#     for r in r_set:
+#         try:
+#             obj += (fare[p] - b[p, r] * fare[r]) * t[p, r]
+#         except:
+#             obj += 0
+
+# model.setObjective(obj,gp.GRB.MINIMIZE)
+# model.update()
+
+# #############################################################################
+# # Iteration 2
+# #############################################################################
+
+# relaxed_model = model.relax()
+# relaxed_model.update()
+# relaxed_model.optimize()
+
+# relaxed_model.write("cg.lp")
+
+# pis = []
+# for i in range(L):
+#     pis.append(relaxed_model.getConstrByName(f"C4({i})").Pi)
+
+# sigmas = []
+# for p in range(P):
+#     sigmas.append(relaxed_model.getConstrByName(f"C5({p})").Pi)
+
+# c = {}
+# for p in range(P):
+#     for r in range(P):
+#         c[p,r] = (fare[p] - sum([delta[i,p]*pis[i] for i in range(L)])) - b[p,r] * (fare[r] - sum([delta[i,r]*pis[i] for i in range(L)])) - sigmas[p]
+
+# new_p = []
+# new_r = []
+
+# for p in range(P):
+#     for r in range(P):
+#         if c[p,r]<0:
+#             # columns to add -> t_p^r
+#             # Suggestion next to r = -1 add the indexes which belong to the various found values
+#             # Then loop over the newly created list of r values (repeat afterwards)
+
+#             # Question what to do with brp b(-1,p) to what is this equal
+#             print(f"({p},{r}) = ({c[p,r]})")
             
-            new_p.append(p)
-            new_r.append(r)
+#             new_p.append(p)
+#             new_r.append(r)
